@@ -1,5 +1,6 @@
+instance/
+*.db
+google-credentials.json
 __pycache__/
 venv/
-instance/
-entries.db
-.env
+

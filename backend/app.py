@@ -3,13 +3,33 @@ from flask import Flask #imports flask
 from flask_sqlalchemy import SQLAlchemy 
 from datetime import datetime
 from flask import request, jsonify
+import gspread
+from oauth2client.service_account import ServiceAccountCredentials
 
 app = Flask(__name__)
 
-app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///entries.db"
+import os
+
+BASE_DIR = os.path.abspath(os.path.dirname(__file__))
+app.config["SQLALCHEMY_DATABASE_URI"] = f"sqlite:///{os.path.join(BASE_DIR, 'instance', 'entries.db')}"
+
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 db = SQLAlchemy(app) 
+
+scope = [
+    "https://spreadsheets.google.com/feeds",
+    "https://www.googleapis.com/auth/spreadsheets",
+    "https://www.googleapis.com/auth/drive"
+]
+
+creds = ServiceAccountCredentials.from_json_keyfile_name("google-credentials.json", scope)
+
+
+client = gspread.authorize(creds)
+
+
+
 
 class Entry(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -39,7 +59,7 @@ def get_entries():
             "id": e.id,
             "name": e.name,
             "items_given": e.items_given,
-            "apperance": e.appearance,
+            "appearance": e.appearance,
             "notes": e.notes,
             "timestamp": e.timestamp.strftime("%Y-%m-%d %H:%M"),
             "is_complete": e.is_complete
@@ -80,6 +100,29 @@ def update_entry(id):
     
     db.session.commit()
     return jsonify({"message": "Entry updates successfully"})
+
+@app.route("/export-to-sheets", methods=["POST"])
+def export_to_sheets():
+    data = request.get_json()
+    
+    if "name" not in data or "items_given" not in data:
+        return jsonify({"error": "Missing name or items_given"}), 400
+    
+    try:
+        sheet = client.open("CMSRU Outreach Log").sheet1
+        sheet.append_row([
+            data["name"],
+            data["items_given"],
+            data.get("appearance", ""),
+            data.get("notes", ""),
+            "Yes" if data.get("is_complete") else "No"
+        ])
+    
+        return jsonify({"message": "Exported to Google Sheets!"}), 200
+    except Exception as e:
+        return jsonify({"error": f"Sheet export failed: {str(e)}"}), 500
+
+
 
 if __name__ == "__main__":
     with app.app_context():
