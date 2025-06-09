@@ -5,10 +5,11 @@ from datetime import datetime
 from flask import request, jsonify
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
+from flask_cors import CORS
 
 app = Flask(__name__)
 
-import os
+CORS(app)
 
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 app.config["SQLALCHEMY_DATABASE_URI"] = f"sqlite:///{os.path.join(BASE_DIR, 'instance', 'entries.db')}"
@@ -48,7 +49,7 @@ def home():
 def ping():
     return "pong"
 
-#get entries
+
 @app.route("/entries", methods=["GET"])
 def get_entries():
     entries = Entry.query.all()
